@@ -1,0 +1,141 @@
+clear all;
+close all;
+
+addpath('../../distmesh');
+
+material = 'rubber';
+
+switch lower(material)
+  case 'cartilage'
+    E   = 0.69e6;
+    nu  = 0.018;
+    rho = 1000;
+  case 'cortical bone'
+    E   = 16.16e9;
+    nu  = 0.33;
+    rho = 1600;
+  case 'cancellous bone'
+    E   = 452e6;
+    nu  = 0.3;
+    rho = 1600;
+  case 'rubber'
+    E   = 0.01e9;
+    nu  = 0.48;
+    rho = 1050;
+  case 'concrete'
+    E   = 30e9;
+    nu  = 0.20;
+    rho = 2320;
+  case 'copper'
+    E   = 125e9;
+    nu  = 0.35;
+    rho = 8900;
+  case 'steel'
+    E  = 210e9;
+    nu  = 0.31;
+    rho = 7800;
+  case 'aluminium'
+    E   = 72e9;
+    nu  = 0.34;
+    rho = 2700;
+  case 'glass'
+    E   = 50e9;
+    nu  = 0.18;
+    rho = 2190;
+  otherwise
+    E   = 10e5;    % Young modulus
+    nu  = 0.3;     % Poisson ratio
+    rho = 1000;
+end
+
+% Input parameters
+% 1. The triangle mesh: p and T
+% 2. Surface traction field: trac
+% 3. Material density field: rho_0
+% 4. Body force density field: b_0
+% 5. Lamé parameteres: lambda and muj
+% 6. Time step size: dt
+
+fd = @(p) drectangle(p,-3,3,-1,1);
+[p,T]=distmesh2d(fd,@huniform,0.3,[-3,-3;3,3],[-3,-1; -3,1; 3,-1; 3,1]);
+X = p (:,1);
+Y = p (:,2);
+X0 = X;
+Y0 = Y;
+
+TR = triangulation(T,X,Y);
+centers = incenter(TR);
+
+b_0 = [];
+lambda = (E*nu) / ((1+nu)*(1-2*nu));
+muj = E / (2*(1+nu));
+dt = 0.0001;
+seconds = 1;
+
+% Simulate
+
+K = length(X);
+vx = zeros(K,1);
+vy = zeros(K,1);
+f_trac = zeros(K,2);
+f_ext = zeros(K,2);
+D0_inv = triangle_coordinates(T, X, Y, 1);
+m = compute_mass(T, X, Y, rho, centers);
+
+% XX = cell(length(1:dt:seconds) + 1);
+% YY = cell(length(1:dt:seconds) + 1);
+
+traction_rounds = 10;
+iteration = 0;
+
+disp('Starting simulation');
+
+for t=0:dt:seconds
+    
+    if mod(iteration, 10) == 0
+        disp(iteration)
+        figure(1);
+        clf;
+        triplot(T, X0, Y0, 'r');
+        hold on
+        triplot(T, X, Y);
+        axis equal;
+        title('Computational mesh') 
+    end
+    
+    Fe = compute_deformation_gradients(T, X, Y, D0_inv);
+    Ee = compute_green_strain_tensors(Fe);
+    Se = compute_2nd_piola_kirchoff_stress_tensors(Ee, lambda, muj);
+    Pe = compute_1st_piola_kirchoff_stress_tensors(Fe,Se);
+    
+    f_elastic = compute_elastic_forces(T, X, Y, Pe);
+    f_trac = compute_traction_forces(T, X, Y, traction_rounds, ...
+                                              iteration);
+    iteration = iteration + 1;
+    f_total = f_ext + f_trac + f_elastic;
+    
+    %XX{iteration} = X;
+    %YY{iteration} = Y;
+    
+    vx = vx + dt*f_total(:,1) ./ m;
+    vy = vy + dt*f_total(:,2) ./ m;
+    X = X + dt*vx;
+    Y = Y + dt*vy;    
+    
+    %waitforbuttonpress
+end
+
+% 
+% XX{iteration + 1} = X;
+% YY{iteration + 1} = Y;
+% 
+% disp('Simulation done');
+% 
+% for i = 1:50:length(0:dt:seconds)+1
+%     figure(3);
+%     clf;
+%     triplot(T, XX{i}, YY{i});
+%     axis equal;
+%     title('Computational mesh')
+% end
+
