@@ -57,7 +57,7 @@ end
 % 6. Time step size: dt
 
 fd = @(p) drectangle(p,-3,3,-1,1);
-[p,T]=distmesh2d(fd,@huniform,0.3,[-3,-3;3,3],[-3,-1; -3,1; 3,-1; 3,1]);
+[p,T]=distmesh2d(fd,@huniform,0.5,[-3,-3;3,3],[-3,-1; -3,1; 3,-1; 3,1]);
 X = p (:,1);
 Y = p (:,2);
 X0 = X;
@@ -74,11 +74,11 @@ seconds = 1;
 
 % Simulate
 
-K = length(X);
-vx = zeros(K,1);
-vy = zeros(K,1);
-f_trac = zeros(K,2);
-f_ext = zeros(K,2);
+N = length(X);
+vx = zeros(N,1);
+vy = zeros(N,1);
+f_trac = zeros(N,2);
+f_ext = zeros(N,2);
 D0_inv = triangle_coordinates(T, X, Y, 1);
 m = compute_mass(T, X, Y, rho, centers);
 
@@ -87,6 +87,9 @@ m = compute_mass(T, X, Y, rho, centers);
 
 traction_rounds = 10;
 iteration = 0;
+
+scenario = 'right-nudge';
+tract_indices = traction_indices(T,X,Y,scenario);
 
 disp('Starting simulation');
 
@@ -109,8 +112,9 @@ for t=0:dt:seconds
     Pe = compute_1st_piola_kirchoff_stress_tensors(Fe,Se);
     
     f_elastic = compute_elastic_forces(T, X, Y, Pe);
-    f_trac = compute_traction_forces(T, X, Y, traction_rounds, ...
-                                              iteration);
+    f_trac = compute_traction_forces(tract_indices, ...
+                                     traction_rounds, ...
+                                     iteration, N);
     iteration = iteration + 1;
     f_total = f_ext + f_trac + f_elastic;
     

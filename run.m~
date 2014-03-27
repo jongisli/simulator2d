@@ -88,17 +88,20 @@ m = compute_mass(T, X, Y, rho, centers);
 traction_rounds = 10;
 iteration = 0;
 
+scenario = 'right-nudge';
+tract_indices = traction_indices(X,Y,scenario);
+
 disp('Starting simulation');
 
-hold on
 for t=0:dt:seconds
     
     if mod(iteration, 10) == 0
         disp(iteration)
         figure(1);
         clf;
+        triplot(T, X0, Y0, 'r');
+        hold on
         triplot(T, X, Y);
-        tripl
         axis equal;
         title('Computational mesh') 
     end
@@ -109,8 +112,9 @@ for t=0:dt:seconds
     Pe = compute_1st_piola_kirchoff_stress_tensors(Fe,Se);
     
     f_elastic = compute_elastic_forces(T, X, Y, Pe);
-    f_trac = compute_traction_forces(T, X, Y, traction_rounds, ...
-                                              iteration);
+    f_trac = compute_traction_forces(T, tract_indices, ...
+                                        traction_rounds, ...
+                                        iteration);
     iteration = iteration + 1;
     f_total = f_ext + f_trac + f_elastic;
     
